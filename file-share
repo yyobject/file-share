@@ -1,0 +1,54 @@
+#!/bin/bash
+# File Share - unified entry script
+# Auto-detects platform and runs the corresponding pre-compiled binary
+
+set -e
+
+# Get script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BIN_DIR="${SCRIPT_DIR}/bin"
+
+# Detect OS
+detect_os() {
+    case "$(uname -s)" in
+        Darwin)  echo "darwin" ;;
+        Linux)   echo "linux" ;;
+        MINGW*|MSYS*|CYGWIN*) echo "windows" ;;
+        *)       echo "unknown" ;;
+    esac
+}
+
+# Detect CPU architecture
+detect_arch() {
+    case "$(uname -m)" in
+        x86_64|amd64)  echo "amd64" ;;
+        arm64|aarch64) echo "arm64" ;;
+        *)             echo "unknown" ;;
+    esac
+}
+
+OS=$(detect_os)
+ARCH=$(detect_arch)
+
+# Build binary path
+if [ "$OS" = "windows" ]; then
+    BINARY="${BIN_DIR}/file-share-${OS}-${ARCH}.exe"
+else
+    BINARY="${BIN_DIR}/file-share-${OS}-${ARCH}"
+fi
+
+# Check if binary exists
+if [ ! -f "$BINARY" ]; then
+    echo "Error: Binary not found for ${OS}-${ARCH}" >&2
+    echo "Available binaries:" >&2
+    ls -1 "${BIN_DIR}/" 2>/dev/null | sed 's/^/  /' >&2
+    exit 1
+fi
+
+# Check execute permission
+if [ ! -x "$BINARY" ]; then
+    chmod +x "$BINARY"
+fi
+
+# Execute binary with all arguments
+exec "$BINARY" "$@"

@@ -1,0 +1,5 @@
+# OSS config files (contain sensitive credentials, do not commit)
+.env
+
+# Build artifacts (optional, remove this line if you want to commit binaries)
+# bin/
