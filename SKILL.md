@@ -1,85 +1,190 @@
 ---
 name: file-share
-description: Convert local files to shareable URLs. Use this tool when: (1) You generate files that need to be shared with users - get accessible URLs instead of outputting raw content; (2) You generate HTML/web pages that need to reference assets (images, CSS, JS) - upload assets first to get URLs for embedding. Also supports transferring third-party URLs to your own domain.
+description: Upload files to cloud storage and get shareable URLs. Supports local files, URLs, and bundling. Auto-detects when generating web content with assets.
 ---
 
 # File Share
 
-Upload files and get shareable URLs. Uses pre-compiled Go binaries, **no dependencies required**.
+Upload files and get shareable URLs. Uses Python with auto-installed dependencies.
 
-## Entry Point
+## When to Use This Skill
 
-Use `./file-share` script, **auto-detects platform**, no need to select binary manually:
+Use this skill automatically when:
+
+1. **Sharing generated files** - Any file created that needs a public URL (HTML pages, reports, images, charts, data files)
+
+2. **Embedding assets in web content** - Building web pages that need to reference external resources (images, CSS, JS, fonts)
+
+3. **Transferring external resources** - User provides third-party URLs that need to be hosted on their domain
+
+4. **Creating shareable artifacts** - Any output that benefits from permanent, accessible URLs (demos, visualizations, prototypes)
+
+**Key workflow**: When generating multi-file outputs (like HTML with images), upload assets first to get URLs, then embed those URLs in the main file.
+
+## Quick Start
+
+### First-Time Setup
+
+1. **Check configuration**:
+   ```bash
+   ./file-share --check
+   ```
+
+2. **If not configured** (`ready: false`), create `~/.file-share.env` with your Alibaba Cloud OSS credentials:
+   ```bash
+   cp .env.example ~/.file-share.env
+   # Edit ~/.file-share.env with your credentials
+   ```
+   See Configuration section for details.
+
+3. **Verify configuration**:
+   ```bash
+   ./file-share --check
+   ```
+
+4. **Upload your first file**:
+   ```bash
+   ./file-share myfile.pdf
+   ```
+
+**Important**: Always verify config is ready before attempting uploads.
+
+### Common Commands
 
 ```bash
-./file-share [options] <files...>
-```
-
-## Pre-flight Check (Important)
-
-Before uploading, **must check if configuration is ready**:
-
-```bash
+# Check configuration
 ./file-share --check
+
+# Upload single file
+./file-share image.png
+
+# Get URL only (for scripting)
+./file-share --quiet document.pdf
+
+# Transfer URL to your domain
+./file-share https://example.com/photo.jpg
+
+# Upload multiple files
+./file-share file1.txt file2.txt file3.txt
+
+# Bundle files as zip
+./file-share --zip report.pdf data.csv images/*.png
+
+# Upload directory
+./file-share --recursive ./dist/
 ```
 
-Output example:
+## Common Workflows
+
+### Workflow 1: Single File
+
+```bash
+./file-share document.pdf
+```
+
+Output:
 ```json
 {
-  "ready": false,
-  "env_vars": {
-    "access_key_id": false,
-    "access_key_secret": false,
-    "bucket_name": false,
-    "endpoint": false
-  },
-  "missing": ["access_key_id", "..."],
-  "suggestions": ["Missing config: ...", "Configuration methods: ..."]
+  "success": true,
+  "mode": "separate",
+  "results": [{
+    "file": "document.pdf",
+    "url": "https://my-bucket.oss-cn-hangzhou.aliyuncs.com/document_20240129_143052.pdf"
+  }]
 }
 ```
 
-If `ready: false`, guide user to configure based on `suggestions`.
+**Parse**: Extract `results[0].url`
+
+*Note: Actual URL format depends on your bucket name, endpoint, and optional custom domain.*
+
+### Workflow 2: Web Page with Assets
+
+1. Upload assets first:
+```bash
+./file-share logo.png hero.jpg
+```
+
+2. Parse URLs from output:
+```json
+{
+  "success": true,
+  "mode": "separate",
+  "results": [
+    {"file": "logo.png", "url": "https://my-bucket.oss-cn-hangzhou.aliyuncs.com/uploads/logo_20240129_143102.png"},
+    {"file": "hero.jpg", "url": "https://my-bucket.oss-cn-hangzhou.aliyuncs.com/uploads/hero_20240129_143102.jpg"}
+  ]
+}
+```
+
+3. Generate HTML with embedded URLs:
+```html
+<img src="https://my-bucket.oss-cn-hangzhou.aliyuncs.com/uploads/logo_20240129_143102.png">
+<img src="https://my-bucket.oss-cn-hangzhou.aliyuncs.com/uploads/hero_20240129_143102.jpg">
+```
+
+4. Upload HTML:
+```bash
+./file-share --quiet index.html
+```
+
+### Workflow 3: Transfer External URLs
+
+```bash
+./file-share https://example.com/photo.jpg https://other.com/asset.png
+```
+
+Tool downloads files and re-uploads to user's bucket, returning new URLs.
+
+### Workflow 4: Bundle as Archive
+
+```bash
+./file-share --zip report.pdf data.csv images/*.png
+```
+
+Output:
+```json
+{
+  "success": true,
+  "mode": "zip",
+  "zip_name": "archive_20240129_143115.zip",
+  "files_included": ["report.pdf", "data.csv", "img1.png", "img2.png"],
+  "url": "https://my-bucket.oss-cn-hangzhou.aliyuncs.com/archive_20240129_143115.zip"
+}
+```
+
+**Parse**: Extract `url` field
 
 ## Configuration
 
-All configuration uses `.env` file format. **Priority from low to high**:
+### Priority (Low to High)
 
-### 1. User home directory (global default)
-```bash
-~/.oss-upload.env
-```
+1. `~/.file-share.env` - Global config (recommended for persistent setup)
+2. `<skill-dir>/.env` - Skill directory
+3. `.env` - Current working directory
+4. Environment variables - Highest priority (e.g., `OSS_ACCESS_KEY_ID`)
 
-### 2. Skill directory
-```bash
-<skill-dir>/.env
-```
+Higher priority overrides lower priority values.
 
-### 3. Current working directory
-```bash
-.env
-```
+### Required Variables
 
-### 4. Environment variables (highest priority)
-```bash
-export OSS_ACCESS_KEY_ID=xxx
-```
+| Variable | Description |
+|----------|-------------|
+| `OSS_ACCESS_KEY_ID` | Alibaba Cloud AccessKey ID |
+| `OSS_ACCESS_KEY_SECRET` | Alibaba Cloud AccessKey Secret |
+| `OSS_BUCKET_NAME` | Bucket name |
+| `OSS_ENDPOINT` | Region endpoint (e.g., `oss-cn-hangzhou.aliyuncs.com`) |
 
-Higher priority config overrides lower priority values.
+### Optional Variables
 
-## Configuration Options
+| Variable | Description |
+|----------|-------------|
+| `OSS_DOMAIN` | Custom domain (uses bucket domain if not set) |
+| `OSS_PREFIX` | File path prefix (e.g., `uploads`) |
 
-| Environment Variable | Required | Description |
-|---------------------|----------|-------------|
-| `OSS_ACCESS_KEY_ID` | ✅ | Alibaba Cloud AccessKey ID |
-| `OSS_ACCESS_KEY_SECRET` | ✅ | Alibaba Cloud AccessKey Secret |
-| `OSS_BUCKET_NAME` | ✅ | Bucket name |
-| `OSS_ENDPOINT` | ✅ | Region endpoint |
-| `OSS_DOMAIN` | ❌ | Custom domain |
-| `OSS_PREFIX` | ❌ | File path prefix |
+### Example Config File
 
-## Configuration File Example
-
-Copy `.env.example` to `.env` and fill in your credentials:
+Copy `.env.example` to one of the config locations and fill in:
 
 ```bash
 # Required
@@ -89,64 +194,15 @@ OSS_BUCKET_NAME=your-bucket-name
 OSS_ENDPOINT=oss-cn-hangzhou.aliyuncs.com
 
 # Optional
-OSS_DOMAIN=
+OSS_DOMAIN=cdn.yourdomain.com
 OSS_PREFIX=uploads
 ```
 
-## Usage
+## Output & Error Handling
 
-### Single file upload
+### Output Format
 
-```bash
-./file-share file.txt
-```
-
-### Upload from URL (transfer from third-party)
-
-Download from URL and re-upload to OSS:
-
-```bash
-./file-share https://example.com/image.png
-```
-
-Multiple URLs:
-
-```bash
-./file-share https://example.com/a.png https://other.com/b.jpg
-```
-
-Mix local files and URLs:
-
-```bash
-./file-share local.txt https://example.com/remote.png
-```
-
-### Multiple files upload separately (one URL per file)
-
-```bash
-./file-share file1.txt file2.txt file3.txt
-```
-
-### Multiple files bundled as zip (one URL)
-
-```bash
-./file-share --zip file1.txt file2.txt file3.txt
-
-# Specify zip filename
-./file-share --zip --zip-name archive.zip file1.txt file2.txt
-```
-
-### Specify OSS path prefix
-
-```bash
-./file-share --prefix uploads/2024 file.txt
-```
-
-## Output Format
-
-JSON format output for easy parsing:
-
-**Single/multiple files upload separately:**
+**Success - Separate files:**
 ```json
 {
   "success": true,
@@ -158,7 +214,7 @@ JSON format output for easy parsing:
 }
 ```
 
-**Zip upload:**
+**Success - Zip bundle:**
 ```json
 {
   "success": true,
@@ -169,99 +225,128 @@ JSON format output for easy parsing:
 }
 ```
 
-## Command Line Options
+**Error:**
+```json
+{
+  "success": false,
+  "error": "Error description"
+}
+```
+
+### Parsing Logic
+
+```python
+import json
+
+result = json.loads(output)
+
+if result.get("success"):
+    if result["mode"] == "separate":
+        # Extract URLs from results array
+        for item in result["results"]:
+            url = item["url"]
+            # Use URL
+    elif result["mode"] == "zip":
+        # Single zip URL
+        url = result["url"]
+        # Use URL
+else:
+    # Handle error
+    error = result.get("error")
+    # Take action based on error type
+```
+
+### Common Errors
+
+| Error | Cause | Action |
+|-------|-------|--------|
+| `"Missing config: ..."` | Credentials not configured | Guide user through setup, run `--check` |
+| `"InvalidAccessKeyId"` | AccessKey ID is incorrect | Verify OSS_ACCESS_KEY_ID in config |
+| `"SignatureDoesNotMatch"` | AccessKey Secret is incorrect | Verify OSS_ACCESS_KEY_SECRET in config |
+| `"NoSuchBucket"` | Bucket doesn't exist | Verify OSS_BUCKET_NAME, create bucket if needed |
+| `"AccessDenied"` | Insufficient permissions | Check bucket permissions and AccessKey policy |
+| `"Failed to download ..."` | URL inaccessible | Verify URL is valid and accessible |
+| `"File not found: ..."` | Invalid file path | Check path exists |
+| `"... is a directory, use --recursive"` | Directory without flag | Add `--recursive` flag |
+| `"Permission denied"` | Script not executable | Run `chmod +x ./file-share` |
+| `"oss2 not installed"` | Missing dependency | Run `pip install oss2 requests` |
+
+**Error handling steps:**
+1. Parse JSON and check `success` field
+2. If `false`, read `error` message
+3. Match error pattern to table above
+4. Take recommended action
+5. For config errors, don't retry until fixed
+6. Always inform user with clear guidance
+
+## Command Options
 
 | Option | Description |
 |--------|-------------|
 | `--check` | Check if configuration is ready |
+| `--quiet` | Output URLs only (no JSON), useful for scripting |
 | `--zip` | Bundle files into zip before upload |
 | `--zip-name NAME` | Specify zip filename (auto-generated by default) |
 | `--prefix PATH` | Specify OSS path prefix |
-| `--no-timestamp` | Don't add timestamp suffix (keep original filename) |
+| `--no-timestamp` | Keep original filename (don't add timestamp) |
 | `--recursive` | Recursively upload directory |
 | `--preserve-path` | Preserve directory structure when zipping |
-| `--quiet` | Quiet mode, only output URLs (for scripting) |
-| `--dry-run` | Preview mode, only show file list |
-| `--config FILE` | Specify config file path |
+| `--dry-run` | Preview files without uploading |
+| `--config FILE` | Specify custom config file path |
 | `--version` | Show version |
 
-## Advanced Usage
+### Usage Examples
 
-### Output URLs only (for piping/scripting)
 ```bash
-./file-share --quiet file.txt
-# Output: https://bucket.oss-cn-hangzhou.aliyuncs.com/file_20240129_123456.txt
-
-# Combine with other commands
+# Quiet mode for scripting
 URL=$(./file-share --quiet file.txt)
-echo "File uploaded: $URL"
-```
+echo "Uploaded to: $URL"
 
-### Keep original filename (no timestamp)
-```bash
-./file-share --no-timestamp file.txt
-```
+# Keep original filename
+./file-share --no-timestamp logo.png
 
-### Recursively upload directory
-```bash
-./file-share --recursive ./dist/
-```
-
-### Preview files to upload
-```bash
-./file-share --dry-run --recursive ./dist/
-# Output:
-# Will upload 5 files:
-#   ./dist/index.html
-#   ./dist/style.css
-#   ...
-```
-
-### Preserve directory structure when zipping
-```bash
+# Upload directory with preserved structure
 ./file-share --recursive --zip --preserve-path ./src/
-# zip will contain paths like src/components/Button.tsx
-```
 
-### Specify config file
-```bash
+# Preview before upload
+./file-share --dry-run --recursive ./build/
+
+# Custom config file
 ./file-share --config /path/to/.env file.txt
+
+# Combine options
+./file-share --recursive --zip --quiet ./dist/
 ```
-
-### Combine options
-```bash
-# Recursively upload directory as zip, output URL only
-./file-share --recursive --zip --quiet ./build/
-```
-
-## Supported Platforms
-
-Script auto-detects and uses corresponding binary:
-- macOS (Apple Silicon / Intel)
-- Linux (x86_64 / ARM64)
-- Windows (x64)
 
 ## Troubleshooting
 
-### macOS: "cannot be opened because the developer cannot be verified"
+### Permission Denied
 
-This only happens on macOS when downloaded via browser. Run:
-
+If script is not executable:
 ```bash
-xattr -cr ./file-share ./bin/*
+chmod +x ./file-share
 ```
 
-### Permission denied (any platform)
+### Dependencies Not Installing
 
-If execute permission is missing:
-
+Manually install:
 ```bash
-chmod +x ./file-share ./bin/*
+pip install oss2 requests
 ```
+
+### Configuration Issues
+
+Run diagnostics:
+```bash
+./file-share --check
+```
+
+Check config file locations and priority (see Configuration section).
 
 ## Notes
 
-- Filenames automatically get timestamp suffix to avoid overwriting
-- Supports wildcards like `*.txt`
-- No dependencies required, works out of the box
-- URLs (http:// or https://) are automatically detected and downloaded before upload
+- Filenames automatically get timestamp suffix to prevent overwriting (disable with `--no-timestamp`)
+- Supports wildcards: `*.txt`, `images/*.png`
+- URLs (http/https) are automatically detected and downloaded before upload
+- Dependencies auto-install on first run
+- Python 3.7+ required

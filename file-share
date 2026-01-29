@@ -1,54 +1,39 @@
 #!/bin/bash
 # File Share - unified entry script
-# Auto-detects platform and runs the corresponding pre-compiled binary
+# Auto-detects Python and runs the main script
 
 set -e
 
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BIN_DIR="${SCRIPT_DIR}/bin"
+PYTHON_SCRIPT="${SCRIPT_DIR}/file_share.py"
 
-# Detect OS
-detect_os() {
-    case "$(uname -s)" in
-        Darwin)  echo "darwin" ;;
-        Linux)   echo "linux" ;;
-        MINGW*|MSYS*|CYGWIN*) echo "windows" ;;
-        *)       echo "unknown" ;;
-    esac
+# Find Python
+find_python() {
+    if command -v python3 &> /dev/null; then
+        echo "python3"
+    elif command -v python &> /dev/null; then
+        echo "python"
+    else
+        echo ""
+    fi
 }
 
-# Detect CPU architecture
-detect_arch() {
-    case "$(uname -m)" in
-        x86_64|amd64)  echo "amd64" ;;
-        arm64|aarch64) echo "arm64" ;;
-        *)             echo "unknown" ;;
-    esac
-}
+PYTHON=$(find_python)
 
-OS=$(detect_os)
-ARCH=$(detect_arch)
-
-# Build binary path
-if [ "$OS" = "windows" ]; then
-    BINARY="${BIN_DIR}/file-share-${OS}-${ARCH}.exe"
-else
-    BINARY="${BIN_DIR}/file-share-${OS}-${ARCH}"
-fi
-
-# Check if binary exists
-if [ ! -f "$BINARY" ]; then
-    echo "Error: Binary not found for ${OS}-${ARCH}" >&2
-    echo "Available binaries:" >&2
-    ls -1 "${BIN_DIR}/" 2>/dev/null | sed 's/^/  /' >&2
+if [ -z "$PYTHON" ]; then
+    echo '{"success": false, "error": "Python not found. Please install Python 3."}' >&2
     exit 1
 fi
 
-# Check execute permission
-if [ ! -x "$BINARY" ]; then
-    chmod +x "$BINARY"
+# Check if dependencies are installed
+if ! $PYTHON -c "import oss2, requests" 2>/dev/null; then
+    echo "Installing dependencies..." >&2
+    if ! $PYTHON -m pip install -q oss2 requests 2>&1; then
+        echo '{"success": false, "error": "Failed to install dependencies. Try manually: pip install oss2 requests"}' >&2
+        exit 1
+    fi
 fi
 
-# Execute binary with all arguments
-exec "$BINARY" "$@"
+# Execute Python script with all arguments
+exec $PYTHON "$PYTHON_SCRIPT" "$@"
