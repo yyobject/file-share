@@ -241,6 +241,24 @@ Script auto-detects and uses corresponding binary:
 - Linux (x86_64 / ARM64)
 - Windows (x64)
 
+## Troubleshooting
+
+### macOS: "cannot be opened because the developer cannot be verified"
+
+This only happens on macOS when downloaded via browser. Run:
+
+```bash
+xattr -cr ./file-share ./bin/*
+```
+
+### Permission denied (any platform)
+
+If execute permission is missing:
+
+```bash
+chmod +x ./file-share ./bin/*
+```
+
 ## Notes
 
 - Filenames automatically get timestamp suffix to avoid overwriting

@@ -23,7 +23,7 @@ A Cursor/Codex skill for converting local files to shareable URLs via Alibaba Cl
 ### Manual
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/file-share.git
+git clone https://github.com/yyobject/file-share.git
 cd file-share
 cp .env.example .env
 # Edit .env with your OSS credentials

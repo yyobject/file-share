@@ -34,5 +34,14 @@ echo "  -> windows-amd64"
 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o ../bin/file-share-windows-amd64.exe .
 
 echo ""
+echo "Compressing with upx (if available)..."
+if command -v upx &> /dev/null; then
+    upx --best ../bin/file-share-* 2>/dev/null || true
+    echo "✅ Compression complete!"
+else
+    echo "⚠️  upx not found, skipping compression (install with: brew install upx)"
+fi
+
+echo ""
 echo "✅ Build complete! Binaries in bin/ directory:"
 ls -lh ../bin/
