@@ -19,6 +19,7 @@ When AI assistants generate files (HTML pages, images, reports, etc.), they need
 - 🚀 **Simple**: One command to upload, get URL back
 - 🌐 **URL Transfer**: Download from any URL and re-upload to your domain
 - 📦 **Batch Upload**: Multiple files at once, or bundle as zip
+- 📁 **Organized Archives**: Auto-organize files into folders within zip archives
 - 🐍 **Python-based**: Cross-platform (macOS, Linux, Windows)
 - 🔧 **Auto-install**: Dependencies install automatically on first run
 - ⚙️ **Flexible Config**: Global or per-project configuration
@@ -117,6 +118,15 @@ Returns:
 ./file-share --zip report.pdf data.csv images/*.png
 ```
 
+### Organized Zip with Custom Folder
+```bash
+# Files organized in "assets/" folder within zip
+./file-share --zip --folder assets image1.png image2.png style.css
+
+# Default: files organized in "files/" folder
+./file-share --zip image1.png image2.png
+```
+
 ### Scripting (Quiet Mode)
 ```bash
 URL=$(./file-share --quiet report.pdf)
@@ -170,6 +180,7 @@ The entry script (`file-share`) is a bash wrapper that:
 --check              # Check configuration status
 --quiet              # Output URLs only (no JSON)
 --zip                # Bundle files as zip
+--folder NAME        # Top-level folder in zip (default: files)
 --prefix PATH        # Specify upload path prefix
 --no-timestamp       # Keep original filename
 --recursive          # Upload directory recursively

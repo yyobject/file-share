@@ -26,7 +26,7 @@ except ImportError:
     print(json.dumps({"success": False, "error": "requests not installed. Run: pip install requests"}))
     sys.exit(1)
 
-VERSION = "2.0.0"
+VERSION = "2.1.0"
 
 
 def get_skill_dir():
@@ -261,11 +261,11 @@ def download_url(url):
         return None, None, f"Failed to save downloaded file: {e}"
 
 
-def create_zip(files, preserve_path, base_dir, filename_map):
+def create_zip(files, preserve_path, base_dir, filename_map, folder_prefix=None):
     """Create zip archive from files."""
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
     tmp.close()
-    
+
     try:
         with zipfile.ZipFile(tmp.name, 'w', zipfile.ZIP_DEFLATED) as zf:
             for file_path in files:
@@ -279,9 +279,13 @@ def create_zip(files, preserve_path, base_dir, filename_map):
                         arcname = Path(file_path).name
                 else:
                     arcname = Path(file_path).name
-                
+
+                # Add folder prefix if specified
+                if folder_prefix:
+                    arcname = f"{folder_prefix.strip('/')}/{arcname}"
+
                 zf.write(file_path, arcname)
-        
+
         return tmp.name, None
     except Exception as e:
         os.unlink(tmp.name)
@@ -355,6 +359,7 @@ def main():
     parser.add_argument('--no-timestamp', action='store_true', help="Don't add timestamp suffix")
     parser.add_argument('--recursive', action='store_true', help='Recursively upload directory')
     parser.add_argument('--preserve-path', action='store_true', help='Preserve directory structure when zipping')
+    parser.add_argument('--folder', default='files', help='Top-level folder name in zip (default: files)')
     parser.add_argument('--quiet', action='store_true', help='Quiet mode, only output URLs')
     parser.add_argument('--dry-run', action='store_true', help='Preview mode, only show file list')
     parser.add_argument('--config', help='Specify config file path')
@@ -460,7 +465,11 @@ def main():
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 name = f"archive_{timestamp}.zip"
             
-            zip_path, err = create_zip(files, args.preserve_path, base_dir, tmp_to_filename)
+            # Always use folder prefix for zip archives
+            # Default is 'files', user can customize with --folder
+            folder_prefix = args.folder if args.folder else 'files'
+
+            zip_path, err = create_zip(files, args.preserve_path, base_dir, tmp_to_filename, folder_prefix)
             if err:
                 output_error(err, args.quiet)
             
